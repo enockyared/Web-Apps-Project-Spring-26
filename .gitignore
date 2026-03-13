@@ -6,6 +6,7 @@ __pycache__/
 notes/
 .pytest_cache/
 .env
+venv/
 app.*
 local/
 .ruff*
