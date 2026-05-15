@@ -90,6 +90,7 @@ def get_price_data(ticker: str) -> Optional[dict]:
     cache.set(cache_key, price_data)
     return price_data
 
+
 def get_quote(ticker: str) -> Optional[SecurityQuote]:
     issuer = get_company_name(ticker)
     price_data = get_price_data(ticker)

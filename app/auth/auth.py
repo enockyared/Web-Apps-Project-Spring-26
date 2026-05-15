@@ -4,6 +4,7 @@ from urllib.request import urlopen
 
 import jwt
 from flask import current_app, g, jsonify, request
+from jwt.algorithms import RSAAlgorithm
 
 
 class AuthError(Exception):
@@ -11,11 +12,13 @@ class AuthError(Exception):
 
 
 def _get_jwks():
-
     region = current_app.config.get("COGNITO_REGION")
     user_pool_id = current_app.config.get("COGNITO_USER_POOL_ID")
 
-    jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
+    jwks_url = (
+        f"https://cognito-idp.{region}.amazonaws.com/"
+        f"{user_pool_id}/.well-known/jwks.json"
+    )
 
     with urlopen(jwks_url) as response:
         jwks = json.loads(response.read())
@@ -25,10 +28,10 @@ def _get_jwks():
 
 def validate_token(token: str) -> dict:
     jwks = _get_jwks()
-
     unverified_header = jwt.get_unverified_header(token)
 
-    rsa_key = {}
+    rsa_key = None
+
     for key in jwks["keys"]:
         if key["kid"] == unverified_header["kid"]:
             rsa_key = {
@@ -38,6 +41,7 @@ def validate_token(token: str) -> dict:
                 "n": key["n"],
                 "e": key["e"],
             }
+            break
 
     if not rsa_key:
         raise AuthError("Unable to find appropriate key")
@@ -45,12 +49,13 @@ def validate_token(token: str) -> dict:
     region = current_app.config.get("COGNITO_REGION")
     user_pool_id = current_app.config.get("COGNITO_USER_POOL_ID")
     audience = current_app.config.get("COGNITO_APP_CLIENT_ID")
-
     issuer = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}"
+
+    public_key = RSAAlgorithm.from_jwk(json.dumps(rsa_key))
 
     payload = jwt.decode(
         token,
-        rsa_key,
+        public_key,
         algorithms=["RS256"],
         audience=audience,
         issuer=issuer,
@@ -74,17 +79,21 @@ def _extract_bearer_token() -> str:
 
 
 def require_auth(f):
-
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return "", 204
 
         try:
             token = _extract_bearer_token()
-
             payload = validate_token(token)
 
             g.current_user = payload
-            g.username = payload.get("cognito:username") or payload.get("username")
+            g.username = (
+                payload.get("cognito:username")
+                or payload.get("username")
+                or payload.get("email")
+            )
             g.user_id = payload.get("sub")
 
         except AuthError as e:
@@ -99,10 +108,22 @@ def require_auth(f):
                 "detail": "Token expired"
             }), 403
 
-        except jwt.InvalidTokenError:
+        except jwt.InvalidAudienceError:
             return jsonify({
                 "error": "Forbidden",
-                "detail": "Invalid token"
+                "detail": "Invalid token audience"
+            }), 403
+
+        except jwt.InvalidIssuerError:
+            return jsonify({
+                "error": "Forbidden",
+                "detail": "Invalid token issuer"
+            }), 403
+
+        except jwt.InvalidTokenError as e:
+            return jsonify({
+                "error": "Forbidden",
+                "detail": f"Invalid token: {str(e)}"
             }), 403
 
         except Exception as e:

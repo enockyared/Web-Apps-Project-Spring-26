@@ -4,7 +4,6 @@ from app.db import db
 from app.models import Investment, Portfolio, Security, Transaction
 from app.service.alpha_vantage_client import get_quote
 
-
 class TradeExecutionException(Exception):
     pass
 
@@ -81,14 +80,11 @@ def execute_purchase_order(portfolio_id: int, ticker: str, quantity: int):
     db.session.flush()
 
 
-def liquidate_investment(portfolio_id: int, ticker: str, quantity: int, sale_price: float):
+def liquidate_investment(portfolio_id: int, ticker: str, quantity: int, sale_price: float | None = None):
     if portfolio_id is None or not ticker or quantity is None or quantity <= 0:
         raise TradeExecutionException(
             f"Invalid liquidation parameters [portfolio_id={portfolio_id}, ticker={ticker}, quantity={quantity}]"
         )
-
-    if sale_price is None or sale_price < 0:
-        raise TradeExecutionException(f"Invalid sale price: {sale_price}")
 
     portfolio = db.session.query(Portfolio).filter_by(id=portfolio_id).one_or_none()
     if not portfolio:
@@ -113,6 +109,19 @@ def liquidate_investment(portfolio_id: int, ticker: str, quantity: int, sale_pri
         raise TradeExecutionException(
             f"Cannot liquidate {quantity} shares of {ticker}. Only {investment.quantity} shares available in portfolio."
         )
+        
+    if sale_price is None:
+        quote = get_quote(ticker)
+
+        if quote is None:
+            raise TradeExecutionException(
+                f"Unable to retrieve current market price for {ticker}"
+            )
+
+        sale_price = quote.price
+
+    if sale_price < 0:
+        raise TradeExecutionException(f"Invalid sale price: {sale_price}")
 
     total_proceeds = sale_price * quantity
     user.balance += total_proceeds

@@ -22,9 +22,9 @@ class BuyTradeRequest(BaseModel):
 
 
 class SellTradeRequest(BaseModel):
-    ticker: str
     portfolio_id: int
-    quantity: float
+    ticker: str
+    quantity: int
     sale_price: float
 
 
