@@ -5,7 +5,7 @@ from app.db import db
 import app.service.portfolio_service as portfolio_service
 import app.service.portfolio_access_service as portfolio_access_service
 from app.service import trade_service
-from app.schemas.request_schemas import BuyTradeRequest, SellTradeRequest
+from app.schemas.request_schemas import BuyTradeRequest
 
 trade_bp = Blueprint('trade', __name__)
 
@@ -37,11 +37,22 @@ def execute_purchase_order():
 @trade_bp.route('/sell', methods=['POST'])
 @require_auth
 def liquidate_investment():
-    req_data = SellTradeRequest(**request.get_json())
+    data = request.get_json() or {}
 
-    portfolio = portfolio_service.get_portfolio_by_id(req_data.portfolio_id)
+    portfolio_id = data.get("portfolio_id")
+    ticker = data.get("ticker")
+    quantity = data.get("quantity")
+    sale_price = data.get("sale_price")
+
+    if not portfolio_id or not ticker or not quantity:
+        return jsonify({
+            "error": "Validation error",
+            "detail": "portfolio_id, ticker, and quantity are required"
+        }), 422
+
+    portfolio = portfolio_service.get_portfolio_by_id(portfolio_id)
     if portfolio is None:
-        return jsonify({'error': f'Portfolio {req_data.portfolio_id} not found'}), 404
+        return jsonify({'error': f'Portfolio {portfolio_id} not found'}), 404
 
     if not portfolio_access_service.can_manage_portfolio(portfolio, g.username):
         return jsonify({
@@ -50,10 +61,11 @@ def liquidate_investment():
         }), 403
 
     trade_service.liquidate_investment(
-        portfolio_id=req_data.portfolio_id,
-        ticker=req_data.ticker,
-        quantity=req_data.quantity,
-        sale_price=req_data.sale_price,
+        portfolio_id=portfolio_id,
+        ticker=ticker,
+        quantity=quantity,
+        sale_price=sale_price,
     )
+
     db.session.commit()
     return jsonify({'message': 'Investment liquidated successfully'}), 200

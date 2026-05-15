@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class Transaction(db.Model):
     __tablename__ = 'transaction'
     transaction_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(30), ForeignKey('user.username'), nullable=False)
+    username: Mapped[str] = mapped_column(String(255), ForeignKey('user.username'), nullable=False)
     portfolio_id: Mapped[int] = mapped_column(Integer, ForeignKey('portfolio.id'), nullable=False)
     ticker: Mapped[str] = mapped_column(String(30), ForeignKey('security.ticker'), nullable=False)
     transaction_type: Mapped[str] = mapped_column(String(10), nullable=False)

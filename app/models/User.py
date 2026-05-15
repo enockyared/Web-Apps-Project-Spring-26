@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class User(db.Model):
     __tablename__ = 'user'
 
-    username: Mapped[str] = mapped_column(String(30), primary_key=True)
+    username: Mapped[str] = mapped_column(String(255), primary_key=True)
     password: Mapped[str] = mapped_column(String(30), nullable=False)
     firstname: Mapped[str] = mapped_column(String(30), nullable=False)
     lastname: Mapped[str] = mapped_column(String(30), nullable=False)

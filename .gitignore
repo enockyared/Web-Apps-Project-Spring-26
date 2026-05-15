@@ -10,3 +10,7 @@ venv/
 app.*
 local/
 .ruff*
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env

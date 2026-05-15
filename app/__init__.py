@@ -1,5 +1,5 @@
 from flask import Flask
-
+from flask_cors import CORS
 from app.config import get_config
 from app.db import db
 from app.extensions import cache
@@ -14,7 +14,12 @@ def create_app(config=None):
 
         app = Flask(__name__)
         app.config.from_object(config)
-
+        CORS(
+            app,
+            resources={r"/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}},
+            allow_headers=["Content-Type", "Authorization"],
+            methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        )
         db.init_app(app)
         cache.init_app(app)
 

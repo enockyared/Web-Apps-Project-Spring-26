@@ -1,8 +1,7 @@
 from typing import List
 
 from app.db import db
-from app.models import Portfolio, User
-
+from app.models import Portfolio, User, Transaction
 
 class UnsupportedPortfolioOperationError(Exception):
     pass
@@ -50,7 +49,18 @@ def delete_portfolio(portfolio_id: int):
     portfolio = db.session.query(Portfolio).filter_by(id=portfolio_id).one_or_none()
 
     if not portfolio:
-        raise UnsupportedPortfolioOperationError(f"Portfolio with id {portfolio_id} does not exist")
+        raise UnsupportedPortfolioOperationError(
+            f"Portfolio with id {portfolio_id} does not exist"
+        )
+
+    if portfolio.investments and len(portfolio.investments) > 0:
+        raise PortfolioOperationError(
+            "Portfolio cannot be deleted while it still contains holdings. "
+            "Please sell/liquidate all holdings first."
+        )
+
+    for transaction in list(portfolio.transactions):
+        db.session.delete(transaction)
 
     db.session.delete(portfolio)
     db.session.flush()

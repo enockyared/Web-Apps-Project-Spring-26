@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify
 from app.auth.auth import require_auth
 import app.service.security_service as security_service
 import app.service.transaction_service as transaction_service
+from app.service.alpha_vantage_client import get_quote
 
 security_bp = Blueprint('security', __name__)
 
@@ -12,6 +13,25 @@ security_bp = Blueprint('security', __name__)
 def get_all_securities():
     securities = security_service.get_all_securities()
     return jsonify([security.__to_dict__() for security in securities]), 200
+
+
+@security_bp.route('/quote/<ticker>', methods=['GET'])
+@require_auth
+def get_live_quote(ticker):
+    quote = get_quote(ticker)
+
+    if quote is None:
+        return jsonify({
+            'error': f'Security {ticker} not found',
+            'detail': 'Please enter a valid ticker symbol.'
+        }), 404
+
+    return jsonify({
+        'ticker': quote.ticker,
+        'issuer': quote.issuer,
+        'date': quote.date,
+        'price': quote.price,
+    }), 200
 
 
 @security_bp.route('/<ticker>', methods=['GET'])
